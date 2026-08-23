@@ -1,0 +1,5 @@
+# Environement files
+.env
+
+# MacOS
+.DS_Store
