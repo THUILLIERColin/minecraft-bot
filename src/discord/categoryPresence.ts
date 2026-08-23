@@ -1,8 +1,8 @@
 import { ChannelType, type Client } from "discord.js";
 import type { Logger } from "../logger.js";
 
-const ONLINE_NAME = "🟢 Minecraft";
-const OFFLINE_NAME = "🔴 Minecraft";
+const ONLINE_NAME = "🟢 MINECRAFT · available";
+const OFFLINE_NAME = "🔴 MINECRAFT · unavailable";
 
 export class CategoryPresence {
   constructor(

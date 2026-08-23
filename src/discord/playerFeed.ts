@@ -9,11 +9,18 @@ export class PlayerFeed {
   ) {}
 
   async announceJoin(name: string): Promise<void> {
-    await this.send(`➡️ **${name}** s'est connecté`);
+    await this.send(`:green_circle: **[${this.timestamp()}] [LOG] ${name}** joined the server`);
   }
 
   async announceLeave(name: string): Promise<void> {
-    await this.send(`⬅️ **${name}** s'est déconnecté`);
+    await this.send(`:red_circle: **[${this.timestamp()}] [LOG] ${name}** left the server`);
+  }
+
+  private timestamp(): string {
+    const now = new Date();
+    const pad = (value: number): string => value.toString().padStart(2, "0");
+
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
   }
 
   private async send(content: string): Promise<void> {
