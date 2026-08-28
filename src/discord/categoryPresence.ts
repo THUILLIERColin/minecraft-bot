@@ -1,5 +1,5 @@
 import { ChannelType, type Client } from "discord.js";
-import type { Logger } from "../logger.js";
+import type { Logger } from "../logger/logger.js";
 
 const ONLINE_NAME = "🟢 MINECRAFT · available";
 const OFFLINE_NAME = "🔴 MINECRAFT · unavailable";
@@ -23,7 +23,7 @@ export class CategoryPresence {
     const channel = await this.client.channels.fetch(this.categoryId);
 
     if (channel?.type !== ChannelType.GuildCategory) {
-      this.logger.error("category id ne pointe pas vers une catégorie", {
+      this.logger.error("l'ID ne pointe pas vers une catégorie", {
         categoryId: this.categoryId,
       });
       return;

@@ -1,5 +1,5 @@
-import { type Client } from "discord.js";
-import type { Logger } from "../logger.js";
+import type { Client } from "discord.js";
+import type { Logger } from "../logger/logger.js";
 
 export class PlayerFeed {
   constructor(

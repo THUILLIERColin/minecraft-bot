@@ -1,7 +1,7 @@
-import type { MonitorEventHandler } from "../events.js";
+import type { MonitorEventHandler } from "./events.js";
 import type { StatusSource } from "../minecraft/statusSource.js";
 import { OFFLINE_STATE, type ServerState } from "../minecraft/types.js";
-import type { Logger } from "../logger.js";
+import type { Logger } from "../logger/logger.js";
 import { diffStates } from "./diff.js";
 
 export interface MonitorOptions {
@@ -13,10 +13,14 @@ export interface MonitorOptions {
 /**
  * Interroge périodiquement une StatusSource et notifie ses abonnés des
  * changements. Ne connaît ni le protocole Minecraft ni Discord.
+ *
+ * Le polling est auto-réordonnancé (setTimeout en fin de cycle plutôt que
+ * setInterval) : un cycle lent ne provoque jamais d'empilement d'appels.
  */
 export class Monitor {
   private previous: ServerState = OFFLINE_STATE;
-  private timer: NodeJS.Timeout | null = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private running = false;
   private readonly handlers: MonitorEventHandler[] = [];
 
   constructor(private readonly options: MonitorOptions) {}
@@ -26,15 +30,34 @@ export class Monitor {
   }
 
   start(): void {
-    if (this.timer !== null) return;
-    void this.poll();
-    this.timer = setInterval(() => void this.poll(), this.options.intervalMs);
+    if (this.running) return;
+    this.running = true;
+    void this.loop();
   }
 
   stop(): void {
-    if (this.timer === null) return;
-    clearInterval(this.timer);
-    this.timer = null;
+    this.running = false;
+    if (this.timer !== null) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+  }
+
+  private async loop(): Promise<void> {
+    if (!this.running) return;
+
+    try {
+      await this.poll();
+    } catch (error) {
+      this.options.logger.error("cycle de monitoring échoué", { error });
+    } finally {
+      if (this.running) {
+        this.timer = setTimeout(
+          () => void this.loop(),
+          this.options.intervalMs,
+        );
+      }
+    }
   }
 
   private async poll(): Promise<void> {
@@ -47,7 +70,10 @@ export class Monitor {
         try {
           await handler(event);
         } catch (error) {
-          this.options.logger.error("handler failed", { event, error });
+          this.options.logger.error("handler d'événement échoué", {
+            event,
+            error,
+          });
         }
       }
     }

@@ -1,4 +1,4 @@
-import type { MonitorEvent } from "../events.js";
+import type { MonitorEvent } from "./events.js";
 import type { ServerState } from "../minecraft/types.js";
 
 /**
@@ -23,8 +23,8 @@ export function diffStates(
     events.push({ type: "serverWentOffline" });
   }
 
-  // Les changements de population n'ont de sens que si le serveur était et
-  // reste en ligne : on évite d'émettre de faux départs quand il s'éteint.
+  // Les mouvements de joueurs n'ont de sens que si le serveur était et reste en
+  // ligne : on évite d'émettre de faux départs au moment où il s'éteint.
   if (previous.online && current.online) {
     for (const name of current.players) {
       if (!previous.players.includes(name)) {
