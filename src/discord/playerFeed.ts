@@ -9,11 +9,15 @@ export class PlayerFeed {
   ) {}
 
   async announceJoin(name: string): Promise<void> {
-    await this.send(`:green_circle: **[${this.timestamp()}] [LOG] ${name}** joined the server`);
+    await this.send(
+      `:green_circle: **[${this.timestamp()}] [LOG] ${name}** joined the server`,
+    );
   }
 
   async announceLeave(name: string): Promise<void> {
-    await this.send(`:red_circle: **[${this.timestamp()}] [LOG] ${name}** left the server`);
+    await this.send(
+      `:red_circle: **[${this.timestamp()}] [LOG] ${name}** left the server`,
+    );
   }
 
   private timestamp(): string {
