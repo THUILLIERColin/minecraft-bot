@@ -1,11 +1,14 @@
-# Environement files
-.env
-
-# MacOS
+# MacOs
 .DS_Store
 
-# Node
+# Module directories
 node_modules/
 
-# Logs
+# Build output directories
 dist/
+
+# Test coverage directory
+coverage/
+
+# Environment variables file
+.env
