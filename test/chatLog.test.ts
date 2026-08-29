@@ -86,6 +86,7 @@ describe("LogTailer", () => {
     const tailer = new LogTailer(path, logger, (line) => lines.push(line));
 
     await tailer.start();
+    tailer.stop();
     await tailer.check();
 
     expect(lines).toEqual([]);
@@ -96,6 +97,7 @@ describe("LogTailer", () => {
     const lines: string[] = [];
     const tailer = new LogTailer(path, logger, (line) => lines.push(line));
     await tailer.start();
+    tailer.stop();
 
     appendFileSync(
       path,
@@ -113,6 +115,7 @@ describe("LogTailer", () => {
     const lines: string[] = [];
     const tailer = new LogTailer(path, logger, (line) => lines.push(line));
     await tailer.start();
+    tailer.stop();
 
     appendFileSync(path, "[13:45:22] [Server thread/INFO]: <Bob> incompl");
     await tailer.check();
@@ -130,6 +133,7 @@ describe("LogTailer", () => {
     const lines: string[] = [];
     const tailer = new LogTailer(path, logger, (line) => lines.push(line));
     await tailer.start();
+    tailer.stop();
 
     // La troncature et l'écriture suivante sont deux écritures distinctes en
     // production, déclenchant chacune leur propre événement fs.watch : on
