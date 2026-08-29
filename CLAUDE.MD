@@ -10,9 +10,12 @@ Bot Discord de monitoring pour un serveur Minecraft. Trois fonctions en
 production : renommer une catégorie Discord selon l'état du serveur
 (`🟢 Minecraft` / `🔴 Minecraft`), annoncer les connexions/déconnexions de
 joueurs dans un salon dédié, et relayer un salon Discord vers le tchat global
-du serveur (sens Discord → Minecraft uniquement, voir `ChatBridge`). Compatible
-tous loaders (Fabric, Forge, NeoForge, Paper, vanilla) car il ne dépend que de
-canaux universels : ping public et RCON.
+du serveur dans les deux sens (`ChatBridge`) : RCON/`tellraw` pour
+Discord → Minecraft, lecture de `logs/latest.log` (`LogTailer`) pour
+Minecraft → Discord — ce deuxième sens suppose que le bot tourne sur la même
+machine que le serveur (variable `MC_LOG_PATH`, optionnelle). Compatible tous
+loaders (Fabric, Forge, NeoForge, Paper, vanilla) car il ne dépend que de
+canaux universels : ping public, RCON, et la sortie console standard.
 
 Stack : TypeScript strict, Node ≥ 20, ESM. Discord.js v14. Zod pour la
 validation. Vitest pour les tests. Déploiement Docker sur Raspberry Pi via
@@ -44,11 +47,11 @@ signale-le et explique pourquoi avant de le faire.
 src/config/    Chargement + validation d'env (Zod, fail-fast).
 src/logger/    Journalisation structurée.
 src/rcon/      protocol.ts (paquets Source RCON, pur) + rconClient.ts (TCP, auth).
-src/minecraft/ types, StatusSource, pingProbe, parsers (purs), rconSource.
+src/minecraft/ types, StatusSource, pingProbe, parsers (purs), rconSource, chatLog.
 src/monitor/   events, diff (pur), monitor (boucle de polling résiliente).
-src/discord/   client, categoryPresence, playerFeed, chatBridge.
+src/discord/   client, categoryPresence, playerFeed, chatBridge (bidirectionnel).
 src/main.ts    Assemble tout et démarre.
-test/          Tests Vitest (protocole, client RCON, parsers, diff, chatBridge).
+test/          Tests Vitest (protocole, client RCON, parsers, diff, chatBridge, chatLog).
 ```
 
 ## Conventions de code
@@ -96,14 +99,15 @@ test/          Tests Vitest (protocole, client RCON, parsers, diff, chatBridge).
 
 ## Hors périmètre sauf demande explicite
 
-Modération, TPS, relais de chat Minecraft → Discord, dashboard web,
-multi-token. L'architecture les anticipe (`RconSource.command()` existe déjà,
-`parseTps` gère Paper et Forge/NeoForge, le modèle de données est pensé
-multi-serveurs), mais ne les implémente pas sans qu'on te le demande.
+Modération, TPS, dashboard web, multi-token. L'architecture les anticipe
+(`RconSource.command()` existe déjà, `parseTps` gère Paper et Forge/NeoForge,
+le modèle de données est pensé multi-serveurs), mais ne les implémente pas
+sans qu'on te le demande.
 
-Le relais Minecraft → Discord en particulier n'est pas juste « pas encore
-demandé » : RCON est un protocole requête/réponse, il ne peut pas pousser les
-messages tapés en jeu. Le faire demanderait un accès SSH aux logs du serveur ou
-un plugin/mod par loader — les deux cassent l'invariant « canaux universels
-ping + RCON ». Ne pas l'implémenter sans en rediscuter l'architecture avec
-l'utilisateur.
+Le relais Minecraft → Discord (`LogTailer`) suppose que le bot est colocalisé
+avec le serveur Minecraft (accès au fichier `logs/latest.log`). Si ce n'est
+pas le cas pour un déploiement donné, ne pas essayer de le faire fonctionner à
+distance (SSH, webhook, agent tiers...) sans en rediscuter l'architecture avec
+l'utilisateur — cette voie a été explorée et écartée au profit de la
+colocalisation, précisément parce qu'elle demande de nouvelles dépendances
+(SSH) ou casse l'invariant « canaux universels » (plugin/mod par loader).

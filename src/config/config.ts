@@ -6,6 +6,7 @@ const schema = z.object({
   DISCORD_CATEGORY_ID: z.string().min(1),
   DISCORD_FEED_CHANNEL_ID: z.string().min(1),
   DISCORD_CHAT_CHANNEL_ID: z.string().min(1),
+  MC_LOG_PATH: z.string().min(1).optional(),
   MC_HOST: z.string().min(1),
   MC_PORT: z.coerce.number().int().positive().default(25565),
   RCON_PORT: z.coerce.number().int().positive().default(25575),
@@ -25,6 +26,7 @@ export interface Config {
     port: number;
     rconPort: number;
     rconPassword: string;
+    logPath: string | undefined;
   };
   pollIntervalMs: number;
 }
@@ -56,6 +58,7 @@ export function loadConfig(): Config {
       port: env.MC_PORT,
       rconPort: env.RCON_PORT,
       rconPassword: env.RCON_PASSWORD,
+      logPath: env.MC_LOG_PATH,
     },
     pollIntervalMs: env.POLL_INTERVAL_SECONDS * 1000,
   };

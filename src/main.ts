@@ -5,6 +5,7 @@ import { CategoryPresence } from "./discord/categoryPresence.js";
 import { PlayerFeed } from "./discord/playerFeed.js";
 import { ChatBridge } from "./discord/chatBridge.js";
 import { RconSource } from "./minecraft/rconSource.js";
+import { LogTailer, parseChatLine } from "./minecraft/chatLog.js";
 import { Monitor } from "./monitor/monitor.js";
 import type { MonitorEvent } from "./monitor/events.js";
 
@@ -36,6 +37,20 @@ async function main(): Promise<void> {
     logger,
   );
   chatBridge.start();
+
+  let logTailer: LogTailer | null = null;
+  if (config.minecraft.logPath !== undefined) {
+    logTailer = new LogTailer(config.minecraft.logPath, logger, (line) => {
+      const chat = parseChatLine(line);
+      if (chat !== null) {
+        void chatBridge.relayFromMinecraft(chat.player, chat.message);
+      }
+    });
+    await logTailer.start();
+    logger.info("relais Minecraft -> Discord démarré", {
+      logPath: config.minecraft.logPath,
+    });
+  }
 
   const monitor = new Monitor({
     source,
@@ -69,6 +84,7 @@ async function main(): Promise<void> {
   const shutdown = (): void => {
     logger.info("arrêt en cours");
     monitor.stop();
+    logTailer?.stop();
     void client.destroy();
     process.exit(0);
   };

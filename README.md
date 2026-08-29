@@ -8,8 +8,8 @@ Fonctions actuelles :
 
 - renommer une catégorie Discord selon l'état du serveur (`🟢 Minecraft` / `🔴 Minecraft`) ;
 - annoncer les connexions et déconnexions de joueurs dans un salon dédié ;
-- relayer un salon Discord vers le tchat global du serveur (sens Discord → Minecraft
-  uniquement, voir ci-dessous pourquoi l'autre sens n'est pas couvert).
+- relayer un salon Discord vers le tchat global du serveur, dans les deux sens
+  (voir `ChatBridge` ci-dessous pour le détail des deux mécanismes utilisés).
 
 La base est prête à recevoir la modération et le TPS (accès RCON déjà en place),
 puis la configuration via Discord (prévue au palier suivant).
@@ -34,6 +34,7 @@ minecraft/
   pingProbe.ts     Sonde de disponibilité (online/offline) par ping.
   parsers.ts       Parsing pur des sorties `list` et TPS.
   rconSource.ts    Source principale : ping pour l'état, RCON pour les joueurs.
+  chatLog.ts       Parsing pur des lignes de chat + suivi de `latest.log`.
 
 monitor/
   events.ts   Types d'événements.
@@ -44,7 +45,7 @@ discord/
   client.ts            Connexion et cycle de vie discord.js.
   categoryPresence.ts  Renomme la catégorie.
   playerFeed.ts        Poste les messages de connexion/déconnexion.
-  chatBridge.ts        Relaie un salon Discord vers le tchat Minecraft (RCON).
+  chatBridge.ts        Relais bidirectionnel Discord <-> Minecraft (RCON et LogTailer).
 
 main.ts    Assemble les composants et démarre.
 ```
@@ -66,17 +67,18 @@ Copier `.env.example` vers `.env` et renseigner les valeurs. Les identifiants
 Discord s'obtiennent en activant le mode développeur, puis clic droit > Copier
 l'identifiant.
 
-| Variable                  | Rôle                                          |
-| ------------------------- | --------------------------------------------- |
-| `DISCORD_TOKEN`           | Token du bot.                                 |
-| `DISCORD_CATEGORY_ID`     | Catégorie à renommer.                         |
-| `DISCORD_FEED_CHANNEL_ID` | Salon des connexions/déconnexions.            |
-| `DISCORD_CHAT_CHANNEL_ID` | Salon relayé vers le tchat du serveur.        |
-| `MC_HOST`                 | Adresse du serveur.                           |
-| `MC_PORT`                 | Port de jeu (ping). Défaut 25565.             |
-| `RCON_PORT`               | Port RCON alloué dans le panel. Défaut 25575. |
-| `RCON_PASSWORD`           | Mot de passe RCON (long et aléatoire).        |
-| `POLL_INTERVAL_SECONDS`   | Intervalle d'interrogation. Défaut 15.        |
+| Variable                  | Rôle                                                                        |
+| ------------------------- | --------------------------------------------------------------------------- |
+| `DISCORD_TOKEN`           | Token du bot.                                                               |
+| `DISCORD_CATEGORY_ID`     | Catégorie à renommer.                                                       |
+| `DISCORD_FEED_CHANNEL_ID` | Salon des connexions/déconnexions.                                          |
+| `DISCORD_CHAT_CHANNEL_ID` | Salon relayé vers le tchat du serveur.                                      |
+| `MC_LOG_PATH`             | Chemin vers `latest.log` (optionnel, active le relais Minecraft → Discord). |
+| `MC_HOST`                 | Adresse du serveur.                                                         |
+| `MC_PORT`                 | Port de jeu (ping). Défaut 25565.                                           |
+| `RCON_PORT`               | Port RCON alloué dans le panel. Défaut 25575.                               |
+| `RCON_PASSWORD`           | Mot de passe RCON (long et aléatoire).                                      |
+| `POLL_INTERVAL_SECONDS`   | Intervalle d'interrogation. Défaut 15.                                      |
 
 ### Côté serveur Minecraft
 
@@ -92,14 +94,29 @@ renommer la catégorie), envoyer des messages, lire l'historique des messages.
 Le relais de chat nécessite l'intent privilégié **Message Content**, à activer
 dans le Discord Developer Portal (onglet Bot) : sans ça, la connexion échoue.
 
-### Pourquoi le relais de chat ne fonctionne que dans un sens
+### Comment fonctionne le relais de chat dans les deux sens
 
 RCON est un protocole requête/réponse : il ne peut pas pousser les messages
 tapés en jeu vers le bot, il ne fait que répondre aux commandes qu'on lui
-envoie. Relayer Minecraft → Discord demanderait soit un accès (SSH) aux logs
-du serveur, soit un plugin/mod dédié par loader — ce qui casse l'objectif du
-projet de rester compatible avec tous les loaders sans dépendance
-supplémentaire. Cette direction reste donc hors périmètre pour l'instant.
+envoie. Les deux sens n'utilisent donc pas le même mécanisme :
+
+- **Discord → Minecraft** : RCON, via `tellraw` (`ChatBridge.handleMessage`).
+- **Minecraft → Discord** : le bot lit lui-même `logs/latest.log` en continu
+  (`LogTailer` + `parseChatLine`), seul canal universel (tous loaders) à
+  exposer le chat des joueurs.
+
+Cette deuxième moitié suppose que le bot puisse lire ce fichier, donc qu'il
+tourne **sur la même machine** que le serveur Minecraft (ou avec un accès
+réseau au fichier). Concrètement : monter le dossier de logs du serveur en
+lecture seule dans le conteneur du bot, et renseigner `MC_LOG_PATH` avec le
+chemin vu depuis le conteneur. Sans `MC_LOG_PATH`, cette moitié du relais est
+simplement désactivée — le reste du bot fonctionne normalement, y compris le
+sens Discord → Minecraft.
+
+Aucune boucle possible : un `tellraw` injecté ne produit pas la forme
+`<Pseudo> message` d'un vrai message de joueur (donc jamais relayé vers
+Discord), et un message posté par le bot dans Discord vient d'un compte bot
+(donc ignoré par `ChatBridge` côté Discord → Minecraft).
 
 ## Développement
 
@@ -116,7 +133,8 @@ npm run check     # format + lint + typecheck + tests
 ```
 
 Chaque brique testable l'est : protocole RCON, client RCON (contre un faux
-serveur), parsers, et logique de diff.
+serveur), parsers, logique de diff, et `chatLog` (contre un vrai fichier
+temporaire, écrit et tronqué pendant le test).
 
 ## Déploiement (Coolify sur Raspberry Pi)
 
@@ -126,6 +144,11 @@ serveur), parsers, et logique de diff.
 3. Renseigner les variables d'environnement dans Coolify (jamais de `.env`
    commité).
 4. Déployer.
+
+Si le relais Minecraft → Discord est activé (`MC_LOG_PATH`), le bot doit
+tourner sur la même machine que le serveur Minecraft, avec le dossier de logs
+du serveur monté en lecture seule dans son conteneur (ex. un volume Docker
+partagé, ou un bind mount vers le chemin réel sur l'hôte).
 
 ## Extensions prévues
 

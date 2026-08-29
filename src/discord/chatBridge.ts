@@ -41,10 +41,15 @@ export function buildTellrawCommand(
 }
 
 /**
- * Relaie les messages d'un salon Discord vers le tchat global du serveur.
- * Sens Discord -> Minecraft uniquement : RCON ne peut pas pousser d'événements,
- * il n'existe donc pas de sens inverse universel (tous loaders) sans dépendance
- * supplémentaire (accès SSH aux logs, ou plugin/mod par loader).
+ * Relaie un salon Discord vers le tchat global du serveur, dans les deux sens.
+ *
+ * Discord -> Minecraft : écoute `messageCreate` et exécute `tellraw` via RCON.
+ * Minecraft -> Discord : alimentée en externe (voir `relayFromMinecraft`) par
+ * un `LogTailer` qui tail `logs/latest.log`, seul canal universel (tous
+ * loaders) capable de voir passer le chat, RCON étant requête/réponse.
+ *
+ * Pas de boucle possible : un message posté par `relayFromMinecraft` vient du
+ * bot lui-même, donc `author.bot` est vrai et `handleMessage` l'ignore déjà.
  */
 export class ChatBridge {
   constructor(
@@ -58,6 +63,21 @@ export class ChatBridge {
     this.client.on("messageCreate", (message: Message) => {
       void this.handleMessage(message);
     });
+  }
+
+  async relayFromMinecraft(player: string, message: string): Promise<void> {
+    try {
+      const channel = await this.client.channels.fetch(this.channelId);
+      if (channel === null || !channel.isSendable()) {
+        this.logger.error("salon de chat introuvable ou non textuel", {
+          channelId: this.channelId,
+        });
+        return;
+      }
+      await channel.send(`**${player}**: ${message}`);
+    } catch (error) {
+      this.logger.error("relais de message vers Discord échoué", { error });
+    }
   }
 
   private async handleMessage(message: Message): Promise<void> {
