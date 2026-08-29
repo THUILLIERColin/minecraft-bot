@@ -3,6 +3,7 @@ import { logger } from "./logger/logger.js";
 import { createDiscordClient } from "./discord/client.js";
 import { CategoryPresence } from "./discord/categoryPresence.js";
 import { PlayerFeed } from "./discord/playerFeed.js";
+import { ChatBridge } from "./discord/chatBridge.js";
 import { RconSource } from "./minecraft/rconSource.js";
 import { Monitor } from "./monitor/monitor.js";
 import type { MonitorEvent } from "./monitor/events.js";
@@ -27,6 +28,14 @@ async function main(): Promise<void> {
     pingPort: config.minecraft.port,
     logger,
   });
+
+  const chatBridge = new ChatBridge(
+    client,
+    config.discord.chatChannelId,
+    source,
+    logger,
+  );
+  chatBridge.start();
 
   const monitor = new Monitor({
     source,

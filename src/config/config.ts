@@ -5,6 +5,7 @@ const schema = z.object({
   DISCORD_TOKEN: z.string().min(1),
   DISCORD_CATEGORY_ID: z.string().min(1),
   DISCORD_FEED_CHANNEL_ID: z.string().min(1),
+  DISCORD_CHAT_CHANNEL_ID: z.string().min(1),
   MC_HOST: z.string().min(1),
   MC_PORT: z.coerce.number().int().positive().default(25565),
   RCON_PORT: z.coerce.number().int().positive().default(25575),
@@ -17,6 +18,7 @@ export interface Config {
     token: string;
     categoryId: string;
     feedChannelId: string;
+    chatChannelId: string;
   };
   minecraft: {
     host: string;
@@ -47,6 +49,7 @@ export function loadConfig(): Config {
       token: env.DISCORD_TOKEN,
       categoryId: env.DISCORD_CATEGORY_ID,
       feedChannelId: env.DISCORD_FEED_CHANNEL_ID,
+      chatChannelId: env.DISCORD_CHAT_CHANNEL_ID,
     },
     minecraft: {
       host: env.MC_HOST,

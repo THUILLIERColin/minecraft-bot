@@ -7,7 +7,9 @@ canaux universels : le ping public et le protocole RCON.
 Fonctions actuelles :
 
 - renommer une catégorie Discord selon l'état du serveur (`🟢 Minecraft` / `🔴 Minecraft`) ;
-- annoncer les connexions et déconnexions de joueurs dans un salon dédié.
+- annoncer les connexions et déconnexions de joueurs dans un salon dédié ;
+- relayer un salon Discord vers le tchat global du serveur (sens Discord → Minecraft
+  uniquement, voir ci-dessous pourquoi l'autre sens n'est pas couvert).
 
 La base est prête à recevoir la modération et le TPS (accès RCON déjà en place),
 puis la configuration via Discord (prévue au palier suivant).
@@ -42,6 +44,7 @@ discord/
   client.ts            Connexion et cycle de vie discord.js.
   categoryPresence.ts  Renomme la catégorie.
   playerFeed.ts        Poste les messages de connexion/déconnexion.
+  chatBridge.ts        Relaie un salon Discord vers le tchat Minecraft (RCON).
 
 main.ts    Assemble les composants et démarre.
 ```
@@ -68,6 +71,7 @@ l'identifiant.
 | `DISCORD_TOKEN`           | Token du bot.                                 |
 | `DISCORD_CATEGORY_ID`     | Catégorie à renommer.                         |
 | `DISCORD_FEED_CHANNEL_ID` | Salon des connexions/déconnexions.            |
+| `DISCORD_CHAT_CHANNEL_ID` | Salon relayé vers le tchat du serveur.        |
 | `MC_HOST`                 | Adresse du serveur.                           |
 | `MC_PORT`                 | Port de jeu (ping). Défaut 25565.             |
 | `RCON_PORT`               | Port RCON alloué dans le panel. Défaut 25575. |
@@ -82,8 +86,20 @@ l'hébergeur pour être joignable de l'extérieur.
 
 ### Permissions du bot Discord
 
-Sur la catégorie et le salon visés : voir le salon, gérer les salons (pour
-renommer la catégorie), envoyer des messages. Aucun intent privilégié requis.
+Sur la catégorie et les salons visés : voir le salon, gérer les salons (pour
+renommer la catégorie), envoyer des messages, lire l'historique des messages.
+
+Le relais de chat nécessite l'intent privilégié **Message Content**, à activer
+dans le Discord Developer Portal (onglet Bot) : sans ça, la connexion échoue.
+
+### Pourquoi le relais de chat ne fonctionne que dans un sens
+
+RCON est un protocole requête/réponse : il ne peut pas pousser les messages
+tapés en jeu vers le bot, il ne fait que répondre aux commandes qu'on lui
+envoie. Relayer Minecraft → Discord demanderait soit un accès (SSH) aux logs
+du serveur, soit un plugin/mod dédié par loader — ce qui casse l'objectif du
+projet de rester compatible avec tous les loaders sans dépendance
+supplémentaire. Cette direction reste donc hors périmètre pour l'instant.
 
 ## Développement
 

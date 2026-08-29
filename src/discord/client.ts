@@ -1,11 +1,19 @@
 import { Client, GatewayIntentBits } from "discord.js";
 
 /**
- * Crée un client Discord et résout quand il est prêt. Intents réduits au
- * minimum : on n'observe aucun message, on agit sur des salons connus par ID.
+ * Crée un client Discord et résout quand il est prêt. GuildMessages et
+ * MessageContent sont nécessaires au relais de chat (ChatBridge) ; ce dernier
+ * est un intent privilégié à activer dans le Discord Developer Portal, sinon
+ * la connexion échoue.
  */
 export async function createDiscordClient(token: string): Promise<Client> {
-  const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+  const client = new Client({
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.MessageContent,
+    ],
+  });
 
   await new Promise<void>((resolve, reject) => {
     client.once("clientReady", () => resolve());
