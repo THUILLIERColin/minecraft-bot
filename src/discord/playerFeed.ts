@@ -21,10 +21,24 @@ export class PlayerFeed {
   }
 
   private timestamp(): string {
-    const now = new Date();
-    const pad = (value: number): string => value.toString().padStart(2, "0");
+    const formatter = new Intl.DateTimeFormat("fr-FR", {
+      timeZone: "Europe/Paris",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
 
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    const parts = Object.fromEntries(
+      formatter
+        .formatToParts(new Date())
+        .map((part) => [part.type, part.value]),
+    );
+
+    return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
   }
 
   private async send(content: string): Promise<void> {
