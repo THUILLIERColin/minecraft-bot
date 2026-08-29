@@ -2,7 +2,8 @@ import { watch, type FSWatcher } from "node:fs";
 import { open, stat } from "node:fs/promises";
 import type { Logger } from "../logger/logger.js";
 
-const CHAT_LINE = /^\[\d{2}:\d{2}:\d{2}\] \[[^\]]*\]: <([^>]+)> (.+)$/;
+const CHAT_LINE =
+  /^\[[^\]]+\] \[[^\]]+\](?: \[[^\]]+\])?: (?:\[Not Secure\] )?<([^>]+)> (.+)$/;
 
 export interface ChatLine {
   player: string;

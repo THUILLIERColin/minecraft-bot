@@ -44,6 +44,30 @@ describe("parseChatLine", () => {
       ),
     ).toBeNull();
   });
+
+  it("extrait le pseudo et le message d'une ligne Forge/NeoForge (logger en 3e groupe)", () => {
+    expect(
+      parseChatLine(
+        "[29Aug2026 12:52:52.626] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: <ColinSaN57> je suis un test",
+      ),
+    ).toEqual({ player: "ColinSaN57", message: "je suis un test" });
+  });
+
+  it("extrait le pseudo et le message malgré le préfixe [Not Secure]", () => {
+    expect(
+      parseChatLine(
+        "[13:45:22] [Server thread/INFO]: [Not Secure] <Colin> salut !",
+      ),
+    ).toEqual({ player: "Colin", message: "salut !" });
+  });
+
+  it("gère [Not Secure] combiné au format Forge/NeoForge", () => {
+    expect(
+      parseChatLine(
+        "[29Aug2026 12:52:52.626] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: [Not Secure] <ColinSaN57> je suis un test",
+      ),
+    ).toEqual({ player: "ColinSaN57", message: "je suis un test" });
+  });
 });
 
 describe("LogTailer", () => {
