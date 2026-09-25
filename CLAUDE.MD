@@ -19,7 +19,7 @@ canaux universels : ping public, RCON, et la sortie console standard.
 
 Stack : TypeScript strict, Node ≥ 20, ESM. Discord.js v14. Zod pour la
 validation. Vitest pour les tests. Déploiement Docker sur Raspberry Pi via
-Coolify.
+`scripts/deploy.sh`.
 
 ## Principe d'architecture — à respecter absolument
 
@@ -94,7 +94,7 @@ test/          Tests Vitest (protocole, client RCON, parsers, diff, chatBridge, 
    ta compréhension et proposer un plan. Attendre validation.
 2. Implémenter par petits incréments, en lançant `npm run check` régulièrement.
 3. Terminer par un récapitulatif : fichiers créés/modifiés, comment tester,
-   points restants (ex. config Coolify).
+   points restants (ex. nouvelle variable à ajouter au `.env` du Pi).
 4. Signaler toute ambiguïté ou décision structurante au lieu de deviner.
 
 ## Hors périmètre sauf demande explicite
