@@ -36,7 +36,7 @@ async function main(): Promise<void> {
     source,
     logger,
   );
-  chatBridge.start();
+  await chatBridge.start();
 
   let logTailer: LogTailer | null = null;
   if (config.minecraft.logPath !== undefined) {
