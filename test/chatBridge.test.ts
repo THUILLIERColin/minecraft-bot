@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildTellrawCommand } from "../src/discord/chatBridge.js";
+import { PermissionFlagsBits, PermissionsBitField } from "discord.js";
+import {
+  buildTellrawCommand,
+  missingChatPermissions,
+  tellrawFailure,
+} from "../src/discord/chatBridge.js";
 
 interface TellrawComponent {
   text: string;
@@ -42,5 +47,43 @@ describe("buildTellrawCommand", () => {
     const payload = parsePayload(command!);
     expect(payload[2].text.length).toBe(201);
     expect(payload[2].text.endsWith("…")).toBe(true);
+  });
+});
+
+describe("tellrawFailure", () => {
+  it("considère une réponse vide comme un succès", () => {
+    expect(tellrawFailure("")).toBeNull();
+    expect(tellrawFailure("  \n")).toBeNull();
+  });
+
+  it("remonte la réponse du serveur quand elle n'est pas vide", () => {
+    expect(tellrawFailure("No player was found\n")).toBe("No player was found");
+    expect(
+      tellrawFailure("Unknown or incomplete command, see below for error"),
+    ).toBe("Unknown or incomplete command, see below for error");
+  });
+});
+
+describe("missingChatPermissions", () => {
+  it("ne signale rien quand le bot peut voir le salon et y écrire", () => {
+    const permissions = new PermissionsBitField([
+      PermissionFlagsBits.ViewChannel,
+      PermissionFlagsBits.SendMessages,
+    ]);
+    expect(missingChatPermissions(permissions)).toEqual([]);
+  });
+
+  it("liste les permissions manquantes", () => {
+    const permissions = new PermissionsBitField([
+      PermissionFlagsBits.SendMessages,
+    ]);
+    expect(missingChatPermissions(permissions)).toEqual(["Voir le salon"]);
+  });
+
+  it("considère un administrateur comme ayant toutes les permissions", () => {
+    const permissions = new PermissionsBitField([
+      PermissionFlagsBits.Administrator,
+    ]);
+    expect(missingChatPermissions(permissions)).toEqual([]);
   });
 });

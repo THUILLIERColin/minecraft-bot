@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   mkdtempSync,
   writeFileSync,
   appendFileSync,
+  renameSync,
   truncateSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -135,9 +136,9 @@ describe("LogTailer", () => {
     await tailer.start();
     tailer.stop();
 
-    // La troncature et l'écriture suivante sont deux écritures distinctes en
-    // production, déclenchant chacune leur propre événement fs.watch : on
-    // appelle check() entre les deux pour rester fidèle à cette granularité.
+    // La troncature et l'écriture suivante peuvent tomber dans deux cycles de
+    // surveillance distincts : on appelle check() entre les deux pour rester
+    // fidèle à cette granularité.
     truncateSync(path, 0);
     await tailer.check();
 
@@ -149,6 +150,84 @@ describe("LogTailer", () => {
 
     expect(lines).toEqual([
       "[13:46:00] [Server thread/INFO]: <Alice> après redémarrage",
+    ]);
+  });
+
+  // Minecraft ne tronque pas latest.log au redémarrage : il le renomme puis en
+  // crée un neuf. Le nouveau peut dépasser la taille de l'ancien avant la
+  // lecture suivante, d'où l'intérêt de détecter le changement d'inode.
+  it("suit le nouveau fichier après rotation, même s'il est plus gros que l'ancien", async () => {
+    const path = tempFile("[13:45:22] [Server thread/INFO]: <Alice> avant\n");
+    const lines: string[] = [];
+    const tailer = new LogTailer(path, logger, (line) => lines.push(line));
+    await tailer.start();
+    tailer.stop();
+
+    renameSync(path, `${path}.1`);
+    writeFileSync(
+      path,
+      "[13:46:00] [Server thread/INFO]: <Alice> après redémarrage, plus long que l'ancien fichier\n",
+    );
+    await tailer.check();
+
+    expect(lines).toEqual([
+      "[13:46:00] [Server thread/INFO]: <Alice> après redémarrage, plus long que l'ancien fichier",
+    ]);
+  });
+
+  it("reste silencieux pendant l'absence du fichier puis lit le nouveau", async () => {
+    const path = tempFile("[13:45:22] [Server thread/INFO]: <Alice> avant\n");
+    const lines: string[] = [];
+    const tailer = new LogTailer(path, logger, (line) => lines.push(line));
+    await tailer.start();
+    tailer.stop();
+
+    renameSync(path, `${path}.1`);
+    await expect(tailer.check()).resolves.toBeUndefined();
+
+    writeFileSync(
+      path,
+      "[13:46:00] [Server thread/INFO]: <Alice> après redémarrage, plus long que l'ancien fichier\n",
+    );
+    await tailer.check();
+
+    expect(lines).toEqual([
+      "[13:46:00] [Server thread/INFO]: <Alice> après redémarrage, plus long que l'ancien fichier",
+    ]);
+  });
+
+  // Ouvrir un dossier en lecture réussit sous Linux et sa taille ne bouge
+  // jamais : sans ce refus explicite, le relais resterait muet sans erreur.
+  it("refuse de démarrer sur un dossier", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mc-monitor-test-"));
+    const tailer = new LogTailer(dir, logger, () => {});
+
+    await expect(tailer.start()).rejects.toThrow(/pas un fichier/);
+    tailer.stop();
+  });
+
+  it("continue de relayer après une rotation, via la surveillance réelle du fichier", async () => {
+    const path = tempFile("[13:45:22] [Server thread/INFO]: <Alice> avant\n");
+    const lines: string[] = [];
+    const tailer = new LogTailer(path, logger, (line) => lines.push(line), {
+      intervalMs: 10,
+    });
+    await tailer.start();
+
+    try {
+      appendFileSync(path, "[13:45:30] [Server thread/INFO]: <Alice> un\n");
+      await vi.waitFor(() => expect(lines).toHaveLength(1));
+
+      renameSync(path, `${path}.1`);
+      writeFileSync(path, "[13:46:00] [Server thread/INFO]: <Alice> deux\n");
+      await vi.waitFor(() => expect(lines).toHaveLength(2));
+    } finally {
+      tailer.stop();
+    }
+
+    expect(lines).toEqual([
+      "[13:45:30] [Server thread/INFO]: <Alice> un",
+      "[13:46:00] [Server thread/INFO]: <Alice> deux",
     ]);
   });
 });

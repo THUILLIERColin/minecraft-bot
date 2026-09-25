@@ -109,9 +109,12 @@ Cette deuxième moitié suppose que le bot puisse lire ce fichier, donc qu'il
 tourne **sur la même machine** que le serveur Minecraft (ou avec un accès
 réseau au fichier). Concrètement : monter le dossier de logs du serveur en
 lecture seule dans le conteneur du bot, et renseigner `MC_LOG_PATH` avec le
-chemin vu depuis le conteneur. Sans `MC_LOG_PATH`, cette moitié du relais est
-simplement désactivée — le reste du bot fonctionne normalement, y compris le
-sens Discord → Minecraft.
+chemin **du fichier** vu depuis le conteneur, pas celui du dossier (ex.
+`-v /chemin/du/serveur/logs:/logs:ro` → `MC_LOG_PATH=/logs/latest.log`). Sans
+`MC_LOG_PATH`, cette moitié du relais est simplement désactivée — le reste du
+bot fonctionne normalement, y compris le sens Discord → Minecraft. Un chemin
+invalide (dossier, fichier illisible) la désactive de même, avec une erreur
+explicite dans les logs au démarrage.
 
 Aucune boucle possible : un `tellraw` injecté ne produit pas la forme
 `<Pseudo> message` d'un vrai message de joueur (donc jamais relayé vers
