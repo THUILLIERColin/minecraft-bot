@@ -74,6 +74,7 @@ l'identifiant.
 | `DISCORD_FEED_CHANNEL_ID` | Salon des connexions/déconnexions.                                          |
 | `DISCORD_CHAT_CHANNEL_ID` | Salon relayé vers le tchat du serveur.                                      |
 | `MC_LOG_PATH`             | Chemin vers `latest.log` (optionnel, active le relais Minecraft → Discord). |
+| `HOST_LOG_DIR`            | Dossier de logs sur l'hôte, monté par `scripts/deploy.sh` (optionnel).      |
 | `MC_HOST`                 | Adresse du serveur.                                                         |
 | `MC_PORT`                 | Port de jeu (ping). Défaut 25565.                                           |
 | `RCON_PORT`               | Port RCON alloué dans le panel. Défaut 25575.                               |
@@ -139,19 +140,31 @@ Chaque brique testable l'est : protocole RCON, client RCON (contre un faux
 serveur), parsers, logique de diff, et `chatLog` (contre un vrai fichier
 temporaire, écrit et tronqué pendant le test).
 
-## Déploiement (Coolify sur Raspberry Pi)
+## Déploiement (Docker sur Raspberry Pi)
 
-1. Pousser le dépôt sur Git.
-2. Coolify : nouvelle application pointant vers le dépôt ; le `Dockerfile` est
-   détecté automatiquement (image multi-arch, compatible ARM).
-3. Renseigner les variables d'environnement dans Coolify (jamais de `.env`
-   commité).
-4. Déployer.
+Sur la machine qui héberge le serveur Minecraft :
 
-Si le relais Minecraft → Discord est activé (`MC_LOG_PATH`), le bot doit
-tourner sur la même machine que le serveur Minecraft, avec le dossier de logs
-du serveur monté en lecture seule dans son conteneur (ex. un volume Docker
-partagé, ou un bind mount vers le chemin réel sur l'hôte).
+1. Cloner le dépôt, puis créer `.env` à partir de `.env.example`.
+2. Pour activer le relais Minecraft → Discord, renseigner `HOST_LOG_DIR` dans
+   `.env` : le dossier de logs du serveur **sur l'hôte** (ex.
+   `/opt/crafty/servers/<uuid>/logs`). Le script le monte en lecture seule sur
+   `/logs` et définit lui-même `MC_LOG_PATH=/logs/latest.log` : inutile de le
+   renseigner (une valeur dans `.env` serait écrasée).
+3. Lancer `./scripts/deploy.sh`.
+
+Le script met à jour le dépôt (`git pull --ff-only`), reconstruit l'image,
+remplace le conteneur (`--restart unless-stopped`, `--network host`, logs
+limités à 3 × 10 Mo), puis affiche les logs en direct (Ctrl+C quitte
+l'affichage sans arrêter le bot). Il vérifie `.env` et `HOST_LOG_DIR` avant de
+toucher au conteneur en place : en cas d'erreur, l'ancien bot continue de
+tourner.
+
+Consulter les logs plus tard, sans redéployer :
+
+```bash
+docker logs -f --tail 50 mc-monitor
+docker logs mc-monitor 2>&1 | grep -i relais   # 2>&1 : les ERROR sont sur stderr
+```
 
 ## Extensions prévues
 
