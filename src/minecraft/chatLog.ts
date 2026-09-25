@@ -1,4 +1,3 @@
-import { unwatchFile, watchFile } from "node:fs";
 import { open, type FileHandle } from "node:fs/promises";
 import type { Logger } from "../logger/logger.js";
 
@@ -40,10 +39,15 @@ const DEFAULT_INTERVAL_MS = 1000;
  * dernière lecture.
  *
  * Au redémarrage, Minecraft renomme `latest.log` et en crée un neuf. D'où deux
- * choix : `watchFile` (polling par chemin) plutôt que `fs.watch`, qui reste
- * accroché à l'inode de l'ancien fichier et devient muet ; et un changement
- * d'inode traité comme un nouveau fichier, la taille seule ne suffisant pas si
- * le nouveau dépasse déjà l'ancienne position.
+ * choix : un polling par chemin plutôt que `fs.watch`, qui reste accroché à
+ * l'inode de l'ancien fichier et devient muet ; et un changement d'inode
+ * traité comme un nouveau fichier, la taille seule ne suffisant pas si le
+ * nouveau dépasse déjà l'ancienne position.
+ *
+ * Le polling appelle `check()` directement plutôt que de passer par
+ * `watchFile` : ce dernier compare contre son propre instantané, pris de façon
+ * asynchrone, et peut rater une écriture survenue juste après `start()`. Ici,
+ * la seule référence est la position lue par la classe elle-même.
  *
  * `check()` est exposée publiquement pour être appelée directement dans les
  * tests, sans attendre le cycle de polling.
@@ -52,7 +56,7 @@ export class LogTailer {
   private position = 0;
   private inode: number | null = null;
   private buffer = "";
-  private watching = false;
+  private timer: ReturnType<typeof setInterval> | null = null;
   private pending: Promise<void> = Promise.resolve();
   private readonly intervalMs: number;
 
@@ -81,14 +85,13 @@ export class LogTailer {
       }
     }
 
-    watchFile(this.path, { interval: this.intervalMs }, this.onChange);
-    this.watching = true;
+    this.timer = setInterval(this.tick, this.intervalMs);
   }
 
   stop(): void {
-    if (!this.watching) return;
-    unwatchFile(this.path, this.onChange);
-    this.watching = false;
+    if (this.timer === null) return;
+    clearInterval(this.timer);
+    this.timer = null;
   }
 
   async check(): Promise<void> {
@@ -120,7 +123,7 @@ export class LogTailer {
     }
   }
 
-  private readonly onChange = (): void => {
+  private readonly tick = (): void => {
     // Sans ce catch, une erreur de lecture rejetterait la chaîne sans
     // gestionnaire et Node arrêterait tout le processus.
     this.pending = this.pending
