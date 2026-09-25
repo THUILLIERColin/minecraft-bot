@@ -77,9 +77,14 @@ export class LogTailer {
       });
     } else {
       try {
-        const { size, ino } = await handle.stat();
-        this.position = size;
-        this.inode = ino;
+        const stats = await handle.stat();
+        if (!stats.isFile()) {
+          throw new Error(
+            `${this.path} n'est pas un fichier : MC_LOG_PATH doit désigner latest.log, pas son dossier`,
+          );
+        }
+        this.position = stats.size;
+        this.inode = stats.ino;
       } finally {
         await handle.close();
       }

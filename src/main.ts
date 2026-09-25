@@ -39,17 +39,26 @@ async function main(): Promise<void> {
   await chatBridge.start();
 
   let logTailer: LogTailer | null = null;
-  if (config.minecraft.logPath !== undefined) {
-    logTailer = new LogTailer(config.minecraft.logPath, logger, (line) => {
+  const logPath = config.minecraft.logPath;
+  if (logPath !== undefined) {
+    const tailer = new LogTailer(logPath, logger, (line) => {
       const chat = parseChatLine(line);
       if (chat !== null) {
         void chatBridge.relayFromMinecraft(chat.player, chat.message);
       }
     });
-    await logTailer.start();
-    logger.info("relais Minecraft -> Discord démarré", {
-      logPath: config.minecraft.logPath,
-    });
+    // Fonction optionnelle : son échec ne doit couper que ce sens du relais,
+    // pas le monitoring ni Discord -> Minecraft.
+    try {
+      await tailer.start();
+      logTailer = tailer;
+      logger.info("relais Minecraft -> Discord démarré", { logPath });
+    } catch (error) {
+      logger.error("relais Minecraft -> Discord désactivé", {
+        logPath,
+        error,
+      });
+    }
   }
 
   const monitor = new Monitor({

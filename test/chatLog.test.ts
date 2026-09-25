@@ -196,6 +196,16 @@ describe("LogTailer", () => {
     ]);
   });
 
+  // Ouvrir un dossier en lecture réussit sous Linux et sa taille ne bouge
+  // jamais : sans ce refus explicite, le relais resterait muet sans erreur.
+  it("refuse de démarrer sur un dossier", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mc-monitor-test-"));
+    const tailer = new LogTailer(dir, logger, () => {});
+
+    await expect(tailer.start()).rejects.toThrow(/pas un fichier/);
+    tailer.stop();
+  });
+
   it("continue de relayer après une rotation, via la surveillance réelle du fichier", async () => {
     const path = tempFile("[13:45:22] [Server thread/INFO]: <Alice> avant\n");
     const lines: string[] = [];
